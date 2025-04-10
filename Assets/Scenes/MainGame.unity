@@ -5120,7 +5120,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 704fdc16329b7304e84496d835601201, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  timeRemaining: 2
+  timeRemaining: 60
   timerText1: {fileID: 110212181}
   timerText2: {fileID: 749079258}
   posX: -19
