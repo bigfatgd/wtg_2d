@@ -5,138 +5,159 @@ using UnityEngine.UI;
 
 public class BossBattleManager : MonoBehaviour
 {
-    public SlotMachine slotMachine; // SlotMachine script
+    public SlotMachine slotMachine;
     public TMP_Text battleResultText;
-    public Button playerRollButton; // Button for player's roll
+    public Button playerRollButton;
     public TMP_Text playerScoreText;
     public TMP_Text bossScoreText;
-    public Camera mainCamera; // Camera for moving
+    public Camera mainCamera;
+    public TimerToMoveCameraPosition timerManager; // przypisz w Inspectorze
 
     private int playerScore = 0;
     private int bossScore = 0;
-    private int rollsLeft = 5; // 5 rolls per turn (as per original game)
+    private int rollsLeft = 5;
     private bool isBattleActive = false;
-    private bool isPlayerTurn = true; // Track if it's player or boss's turn
+
+    private TimerToMoveCameraPosition timerScript;
 
     void Start()
     {
-        // Initially, only the roll button is visible
-        playerRollButton.gameObject.SetActive(true); // Enable roll button initially
-        playerRollButton.onClick.AddListener(PlayerRoll); // Make sure the roll button calls PlayerRoll on click
+        timerScript = FindObjectOfType<TimerToMoveCameraPosition>();
+
+        playerRollButton.gameObject.SetActive(true);
+        playerRollButton.onClick.AddListener(PlayerRoll);
+
         battleResultText.text = "";
+        playerScoreText.text = "Player Score: 0";
+        bossScoreText.text = "Boss Score: 0";
     }
 
     public void StartBattle()
 {
-    if (isBattleActive) return; // Prevent starting a new battle while one is active
+    if (isBattleActive)
+    {
+        Debug.Log("StartBattle() blocked, battle already active");
+        return;
+    }
 
     isBattleActive = true;
-    rollsLeft = 5;
+
+    battleResultText.text = "Battle Started!";
+    playerScoreText.text = "Player Score: 0";
+    bossScoreText.text = "Boss Score: 0";
+
+    Debug.Log("Battle STARTED");
+}
+
+
+public void ResetBattle()
+{
+    Debug.Log("ResetBattle() called");
+
     playerScore = 0;
     bossScore = 0;
-    battleResultText.text = "Battle Started!";
-    
-    // Start the battle with player's turn
-    StartCoroutine(PlayerTurn());
+    rollsLeft = 5;
+    isBattleActive = false;
+
+    slotMachine.ResetBossEffects(); // Jeśli masz jakieś power-upy u bossa, resetuj
+
+    battleResultText.text = "";
+    playerScoreText.text = "Player Score: 0";
+    bossScoreText.text = "Boss Score: 0";
+
+    playerRollButton.gameObject.SetActive(true);
 }
 
 
-    IEnumerator PlayerTurn()
-    {
-        while (rollsLeft > 0)
-        {
-            // Wait for the player to click the roll button, don't do it automatically
-            yield return null; // Just wait for the button press to call PlayerRoll()
-        }
-
-        // After player's turn, it's the boss's turn
-        battleResultText.text = "Boss's Turn!";
-        yield return new WaitForSeconds(1f); // Delay before boss's move
-
-        // Boss starts rolling
-        StartCoroutine(BossTurn());
-    }
-
-    IEnumerator GetPlayerScore()
-    {
-        // Wait for the score from the slot machine (the RollAndGetScore method should return the score)
-        yield return StartCoroutine(slotMachine.RollAndGetScore());
-
-        // Assuming RollAndGetScore() modifies a public variable in slotMachine to hold the score
-        int scoreFromRoll = slotMachine.GetScore(); // This method should return the score the player has earned from the roll
-        playerScore += scoreFromRoll; // Add score to player's total
-    }
-
-    IEnumerator BossTurn()
-{
-    int bossRolls = 5; // Boss ma 5 rzutów
-    slotMachine.ResetBossEffects(); // Resetowanie efektów power-upów dla bossa
-
-    while (bossRolls > 0)
-    {
-        // Symulujemy rzut bossa
-        yield return StartCoroutine(slotMachine.RollAndGetScore()); 
-
-        // Zliczanie wyników
-        int scoreFromBossRoll = slotMachine.GetScore(); 
-        bossScore += scoreFromBossRoll; // Dodawanie punktów
-        bossRolls--; // Zmniejszanie liczby rzutów
-        bossScoreText.text = "Boss Score: " + bossScore;
-        yield return new WaitForSeconds(1f); // Krótkie opóźnienie między rzutami
-    }
-
-    // Po turze bossa kończymy bitwę
-    EndBattle();
-}
-
-
-    void EndBattle()
-    {
-        // If player's score is less than boss's score
-        if (playerScore < bossScore)
-        {
-            battleResultText.text = "You Lost! Moving to next scene!";
-            StartCoroutine(MoveToNextScene());
-        }
-        else
-        {
-            battleResultText.text = "You Won!";
-            // Move camera to the right if player wins
-            StartCoroutine(MoveCameraRight());
-            // You can add bonuses, rewards, etc.
-        }
-    }
-
-    IEnumerator MoveToNextScene()
-    {
-        yield return new WaitForSeconds(2f); // Wait a moment before changing scene
-        int nextSceneIndex = UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex + 1; // Change to the next scene
-        UnityEngine.SceneManagement.SceneManager.LoadScene(nextSceneIndex); // Load the next scene
-    }
-
-    IEnumerator MoveCameraRight()
-    {
-        // Instead of moving smoothly, instantly teleport the camera
-        mainCamera.transform.position = new Vector3(mainCamera.transform.position.x + 5f, mainCamera.transform.position.y, mainCamera.transform.position.z);
-        yield return null;
-    }
 
     void PlayerRoll()
     {
         if (rollsLeft > 0)
         {
-            // Player presses the roll button, perform roll action
+            Debug.Log("Player clicked roll");
+
             StartCoroutine(GetPlayerScore());
-
-            // Update score and roll count
             rollsLeft--;
-            playerScoreText.text = "Player Score: " + playerScore;
 
-            // Disable the button when there are no rolls left
             if (rollsLeft == 0)
-            {
-                playerRollButton.gameObject.SetActive(false); // Hide the roll button when player runs out of rolls
-            }
+        {
+          playerRollButton.gameObject.SetActive(false);
+          StartCoroutine(BossTurn());
         }
+
+        }
+    }
+
+    IEnumerator GetPlayerScore()
+    {
+        yield return StartCoroutine(slotMachine.RollAndGetScore());
+
+        int scoreFromRoll = slotMachine.GetScore();
+        playerScore += scoreFromRoll;
+        playerScoreText.text = "Player Score: " + playerScore;
+    }
+
+    IEnumerator BossTurn()
+    {
+        int bossRolls = 5;
+        slotMachine.ResetBossEffects(); // Reset power-upów
+
+        while (bossRolls > 0)
+        {
+            yield return StartCoroutine(slotMachine.RollAndGetScore());
+
+            int scoreFromBossRoll = slotMachine.GetScore();
+            bossScore += scoreFromBossRoll;
+            bossScoreText.text = "Boss Score: " + bossScore;
+
+            bossRolls--;
+            yield return new WaitForSeconds(1f);
+        }
+
+        EndBattle();
+    }
+
+    void EndBattle()
+{
+    if (playerScore > bossScore)
+    {
+        battleResultText.text = "You Won!";
+        Debug.Log("PLAYER WON");
+
+        StartCoroutine(MoveCameraRight());
+
+        if (timerScript != null)
+        {
+            timerScript.ResetTimer();
+        }
+
+        ResetBattle(); // <-- resetujemy grę po wygranej
+
+        slotMachine.ResetBossEffects(); // <-- resetujemy tylko power-upy bossa
+    }
+    else
+    {
+        battleResultText.text = "You Lost!";
+        Debug.Log("PLAYER LOST");
+
+        StartCoroutine(MoveCameraLeft());
+        isBattleActive = false;
+    }
+}
+
+
+
+    IEnumerator MoveCameraRight()
+    {
+        Vector3 newPos = mainCamera.transform.position + new Vector3(19f, 0, 0);
+        mainCamera.transform.position = newPos;
+        yield return null;
+    }
+
+    IEnumerator MoveCameraLeft()
+    {
+        Vector3 newPos = mainCamera.transform.position + new Vector3(-18f, 0, 0);
+        mainCamera.transform.position = newPos;
+        yield return null;
     }
 }

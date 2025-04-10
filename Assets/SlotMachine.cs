@@ -171,13 +171,13 @@ public class SlotMachine : MonoBehaviour
         rollCooldown = 0.5f; // Zmniejszają czas oczekiwania na połowę sekundy
     }
     
-public void ResetBossEffects()
-{
-    extraSymbols = 0;  // Reset dodatkowych symboli
-    bonusMultiplier = 1.0f; // Reset multiplikatora bonusu
-    randomizeSymbols = false; // Wyłącz wild cards
-    pointReductionMultiplier = 1.0f; // Reset multiplikatora punktów
-}
+    public void ResetBossEffects()
+    {
+        extraSymbols = 0;  // Reset dodatkowych symboli
+        bonusMultiplier = 1.0f; // Reset multiplikatora bonusu
+        randomizeSymbols = false; // Wyłącz wild cards
+        pointReductionMultiplier = 1.0f; // Reset multiplikatora punktów
+    }
 
     public void ActivateWildCard()
     {

@@ -17,30 +17,37 @@ public class TimerToMoveCameraPosition : MonoBehaviour
     private bool cameraMoved = false;
 
     void Update()
+{
+    if (timerIsRunning)
     {
-        if (timerIsRunning)
+        if (timeRemaining > 0)
         {
-            if (timeRemaining > 0)
-            {
-                timeRemaining -= Time.deltaTime;
-                UpdateTimerDisplay(timeRemaining);
-            }
-            else
-            {
-                timeRemaining = 0;
-                timerIsRunning = false;
+            timeRemaining -= Time.deltaTime;
+            UpdateTimerDisplay(timeRemaining);
+        }
+        else
+        {
+            timeRemaining = 0;
+            timerIsRunning = false;
 
-                if (!cameraMoved)
+            if (!cameraMoved)
+            {
+                Debug.Log("Timer finished - moving camera and starting battle");
+
+                MoveCameraToPosition(posX, posY);
+                cameraMoved = true;
+
+                if (bossBattleManager != null)
                 {
-                    MoveCameraToPosition(posX, posY);
-                    cameraMoved = true;
-
-                    if (bossBattleManager != null)
-                        bossBattleManager.StartBattle();
+                    bossBattleManager.StartBattle();
+                    Debug.Log("StartBattle() called from Timer");
                 }
             }
         }
     }
+}
+
+
 
     void UpdateTimerDisplay(float timeToDisplay)
     {
@@ -62,10 +69,30 @@ public class TimerToMoveCameraPosition : MonoBehaviour
         }
     }
 
-    public void ResetTimer()
+    public void ResetAndRestartCycle()
     {
+        // Kamera przesuwa się w prawo o 5 jednostek (możesz zmienić)
+        if (mainCamera != null)
+        {
+            mainCamera.transform.position += new Vector3(5f, 0f, 0f);
+        }
+
         timeRemaining = 60f;
         timerIsRunning = true;
         cameraMoved = false;
+
+        if (bossBattleManager != null)
+            bossBattleManager.StartBattle();
     }
+    
+
+   public void ResetTimer()
+{
+    timeRemaining = 60f;
+    timerIsRunning = true;
+    cameraMoved = false; // <- UPEWNIJ SIĘ, ŻE TO TU JEST
+    Debug.Log("ResetTimer called: cameraMoved reset to FALSE");
+}
+
+
 }
