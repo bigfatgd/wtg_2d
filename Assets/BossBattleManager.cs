@@ -11,12 +11,18 @@ public class BossBattleManager : MonoBehaviour
     public TMP_Text playerScoreText;
     public TMP_Text bossScoreText;
     public Camera mainCamera;
-    public TimerToMoveCameraPosition timerManager; // przypisz w Inspectorze
+    public TimerToMoveCameraPosition timerManager;
+
+    [Header("Boss Multiplier Settings")]
+    public float baseBossMultiplier = 1.0f;              // Starting multiplier
+    public float multiplierIncreasePerRound = 0.5f;      // Increase after each battle
+    private float currentBossMultiplier = 1.0f;
 
     private int playerScore = 0;
     private int bossScore = 0;
     private int rollsLeft = 5;
     private bool isBattleActive = false;
+    private int currentBattleRound = 0;
 
     private TimerToMoveCameraPosition timerScript;
 
@@ -30,45 +36,47 @@ public class BossBattleManager : MonoBehaviour
         battleResultText.text = "";
         playerScoreText.text = "Player Score: 0";
         bossScoreText.text = "Boss Score: 0";
+
+        currentBossMultiplier = baseBossMultiplier;
+        StartBattle(); // Start the first round immediately
     }
 
     public void StartBattle()
-{
-    if (isBattleActive)
     {
-        Debug.Log("StartBattle() blocked, battle already active");
-        return;
+        if (isBattleActive)
+        {
+            Debug.Log("StartBattle() blocked, battle already active");
+            return;
+        }
+
+        isBattleActive = true;
+
+        currentBattleRound++;
+        currentBossMultiplier = baseBossMultiplier + (multiplierIncreasePerRound * (currentBattleRound - 1));
+        Debug.Log($"[ROUND {currentBattleRound}] Boss multiplier: {currentBossMultiplier}");
+
+        battleResultText.text = " ";
+        playerScoreText.text = "Player Score: 0";
+        bossScoreText.text = "Boss Score: 0";
     }
 
-    isBattleActive = true;
+    public void ResetBattle()
+    {
+        Debug.Log("ResetBattle() called");
 
-    battleResultText.text = "Battle Started!";
-    playerScoreText.text = "Player Score: 0";
-    bossScoreText.text = "Boss Score: 0";
+        playerScore = 0;
+        bossScore = 0;
+        rollsLeft = 5;
+        isBattleActive = false;
 
-    Debug.Log("Battle STARTED");
-}
+        slotMachine.ResetBossEffects();
 
+        battleResultText.text = "";
+        playerScoreText.text = "Player Score: 0";
+        bossScoreText.text = "Boss Score: 0";
 
-public void ResetBattle()
-{
-    Debug.Log("ResetBattle() called");
-
-    playerScore = 0;
-    bossScore = 0;
-    rollsLeft = 5;
-    isBattleActive = false;
-
-    slotMachine.ResetBossEffects(); // Jeśli masz jakieś power-upy u bossa, resetuj
-
-    battleResultText.text = "";
-    playerScoreText.text = "Player Score: 0";
-    bossScoreText.text = "Boss Score: 0";
-
-    playerRollButton.gameObject.SetActive(true);
-}
-
-
+        playerRollButton.gameObject.SetActive(true);
+    }
 
     void PlayerRoll()
     {
@@ -80,72 +88,80 @@ public void ResetBattle()
             rollsLeft--;
 
             if (rollsLeft == 0)
-        {
-          playerRollButton.gameObject.SetActive(false);
-          StartCoroutine(BossTurn());
-        }
-
+            {
+                playerRollButton.gameObject.SetActive(false); // Disable button during boss phase
+                StartCoroutine(BossTurn());
+            }
         }
     }
 
+    // Coroutine to get player score after roll
     IEnumerator GetPlayerScore()
     {
-        yield return StartCoroutine(slotMachine.RollAndGetScore());
-
+        playerRollButton.interactable = false; // Disable the button during player roll
+        yield return StartCoroutine(slotMachine.RollAndGetScore(false, true)); // Player roll in boss phase
         int scoreFromRoll = slotMachine.GetScore();
         playerScore += scoreFromRoll;
         playerScoreText.text = "Player Score: " + playerScore;
+        yield return new WaitForSeconds(slotMachine.rollCooldown); // Wait for the cooldown before enabling the button again
+        playerRollButton.interactable = true; // Re-enable the button after the cooldown
     }
 
+    // Coroutine for boss turn
     IEnumerator BossTurn()
     {
         int bossRolls = 5;
-        slotMachine.ResetBossEffects(); // Reset power-upów
+        slotMachine.ResetBossEffects();
 
         while (bossRolls > 0)
         {
-            yield return StartCoroutine(slotMachine.RollAndGetScore());
+            yield return StartCoroutine(slotMachine.RollAndGetScore(bossRoll: true, isPlayerInBoss: false));
+            int baseScore = slotMachine.GetScore();
+            int multipliedScore = Mathf.RoundToInt(baseScore * currentBossMultiplier);
+            bossScore += multipliedScore;
 
-            int scoreFromBossRoll = slotMachine.GetScore();
-            bossScore += scoreFromBossRoll;
             bossScoreText.text = "Boss Score: " + bossScore;
-
             bossRolls--;
-            yield return new WaitForSeconds(1f);
+
+            // Wait for the cooldown between boss rolls (use the same delay as the player)
+            yield return new WaitForSeconds(slotMachine.rollCooldown + 0.1f); // Extra 0.1f to simulate more animation time
         }
 
         EndBattle();
     }
 
     void EndBattle()
-{
-    if (playerScore > bossScore)
     {
-        battleResultText.text = "You Won!";
-        Debug.Log("PLAYER WON");
-
-        StartCoroutine(MoveCameraRight());
-
-        if (timerScript != null)
+        if (playerScore > bossScore)
         {
-            timerScript.ResetTimer();
+            battleResultText.text = "You Won!";
+            Debug.Log("PLAYER WON");
+
+            StartCoroutine(MoveCameraRight());
+
+            if (timerScript != null)
+            {
+                timerScript.ResetTimer();
+            }
+
+            ResetBattle();
+            StartCoroutine(DelayedStartNextBattle());
         }
+        else
+        {
+            battleResultText.text = "You Lost!";
+            Debug.Log("PLAYER LOST");
 
-        ResetBattle(); // <-- resetujemy grę po wygranej
-
-        slotMachine.ResetBossEffects(); // <-- resetujemy tylko power-upy bossa
+            StartCoroutine(MoveCameraLeft());
+            isBattleActive = false;
+        }
     }
-    else
+
+    IEnumerator DelayedStartNextBattle()
     {
-        battleResultText.text = "You Lost!";
-        Debug.Log("PLAYER LOST");
-
-        StartCoroutine(MoveCameraLeft());
-        isBattleActive = false;
+        yield return new WaitForSeconds(1f);
+        StartBattle();
     }
-}
-
-
 
     IEnumerator MoveCameraRight()
     {
